@@ -1,0 +1,7 @@
+# Cross-cutting OS / editor cruft.
+# Project-specific ignores live in api/.gitignore and web/.gitignore.
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo

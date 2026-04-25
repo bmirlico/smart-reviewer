@@ -1,0 +1,29 @@
+development:
+  clients:
+    default:
+      uri: <%= ENV.fetch('MONGODB_URI', 'mongodb://localhost:27017/smart_reviewer_dev') %>
+      options:
+        server_selection_timeout: 5
+  options:
+    raise_not_found_error: false
+
+test:
+  clients:
+    default:
+      uri: <%= ENV.fetch('MONGODB_URI', 'mongodb://localhost:27017/smart_reviewer_test') %>
+      options:
+        server_selection_timeout: 5
+        max_pool_size: 1
+        read:
+          mode: :primary
+  options:
+    raise_not_found_error: false
+
+production:
+  clients:
+    default:
+      uri: <%= ENV['MONGODB_URI'] %>
+      options:
+        server_selection_timeout: 5
+  options:
+    raise_not_found_error: false
