@@ -5,7 +5,13 @@ A small full-stack web app that searches recent news articles, analyzes any one 
 ## 🎥 Demo
 
 - **🌐 Live app:** <https://smart-reviewer-web.onrender.com>
-- **🎬 Walkthrough video:** _[TODO: paste link here]_
+- **🎬 Walkthrough video:** 
+
+https://github.com/user-attachments/assets/4a06ab21-4a2d-43e2-9308-ecb01582d582
+
+
+
+
 
 > First load may take ~30s — the Render free tier puts the API to sleep after 15 min of inactivity.
 
