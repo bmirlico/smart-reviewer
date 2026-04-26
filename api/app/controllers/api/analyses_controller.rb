@@ -4,7 +4,7 @@ module Api
       attrs = analysis_params
 
       existing = Result.find_by(url: attrs[:url])
-      return render(json: existing.as_json, status: :ok) if existing
+      return render json: existing.as_json, status: :ok if existing
 
       analysis = OpenaiAnalyzer.new.analyze(
         title: attrs[:title],
