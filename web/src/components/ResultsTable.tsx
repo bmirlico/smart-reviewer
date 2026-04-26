@@ -49,8 +49,8 @@ export function ResultsTable({ results, isLoading, isError, error, onRetry }: Pr
   }
 
   return (
-    <div className="rounded-lg border border-neutral-200 bg-white overflow-hidden shadow-sm">
-      <table className="w-full text-sm">
+    <div className="rounded-lg border border-neutral-200 bg-white shadow-sm overflow-x-auto">
+      <table className="w-full min-w-[720px] text-sm">
         <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wide text-neutral-500">
           <tr>
             <th className="px-4 py-3 font-medium">Title</th>
