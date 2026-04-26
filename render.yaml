@@ -1,0 +1,101 @@
+# render.yaml — Render Blueprint for Smart Reviewer
+#
+# This file is the source of truth for the Render deployment. To deploy:
+#   1. Push this repo to GitHub.
+#   2. Render Dashboard → New + → Blueprint → choose this repo.
+#   3. Render parses this file and prompts you for the env vars marked
+#      `sync: false` (the sensitive ones we never commit).
+#   4. After both services are live, set FRONTEND_ORIGIN on the api service
+#      and VITE_API_URL on the web service to each other's public URL.
+#
+# Schema reference: https://render.com/docs/blueprint-spec
+# Rails 8 deploy guide: https://render.com/docs/deploy-rails-8
+
+services:
+
+  # ─────────────────────────────────────────────────────────────────
+  # Rails 8.1 API (Web Service, Ruby runtime)
+  # ─────────────────────────────────────────────────────────────────
+  - type: web                # Render groups Web Services and Static Sites under `type: web`
+    runtime: ruby            # auto-detected from Gemfile, but explicit is clearer
+    name: smart-reviewer-api
+    rootDir: api             # commands run from this subfolder (monorepo)
+    plan: free               # 512MB RAM, sleeps after 15min idle — fine for a demo
+    region: frankfurt        # EU latency for FR users; valid values: oregon|ohio|virginia|frankfurt|singapore
+    autoDeployTrigger: commit  # redeploy on every push to main (replaces deprecated `autoDeploy: true`)
+    healthCheckPath: /up     # /up is wired in routes.rb and silenced from logs in production.rb
+
+    # Build runs on every deploy. The script is in api/bin/render-build.sh
+    # so the YAML stays declarative and the script is testable locally.
+    buildCommand: ./bin/render-build.sh
+
+    # Render injects $PORT (assigned dynamically). -e production sets RAILS_ENV.
+    startCommand: bundle exec rails server -p $PORT -e production
+
+    envVars:
+      - key: RAILS_ENV
+        value: production
+      - key: RAILS_LOG_TO_STDOUT
+        value: "true"          # send logs to stdout so Render aggregates them
+
+      # Production bundler hygiene:
+      # - BUNDLE_DEPLOYMENT=true makes `bundle install` strict (no lockfile mutation)
+      # - BUNDLE_WITHOUT excludes the dev/test gem groups from being installed
+      - key: BUNDLE_DEPLOYMENT
+        value: "true"
+      - key: BUNDLE_WITHOUT
+        value: "development:test"
+
+      # Render's explicit recommendation for Rails on free tier. Without this,
+      # Puma auto-detects CPU count and may OOM on a 512MB instance.
+      - key: WEB_CONCURRENCY
+        value: "2"
+
+      # ── Sensitive: filled in via the Render dashboard, never committed ──
+      # MongoDB Atlas URI for prod. Must include /smart_reviewer_prod as the
+      # DB name (NOT /smart_reviewer_dev — that's the local Docker DB).
+      - key: MONGODB_URI
+        sync: false
+      - key: GNEWS_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      # Contents of api/config/master.key (32-char hex). Decrypts
+      # config/credentials.yml.enc. Keep it secret, keep it safe.
+      - key: RAILS_MASTER_KEY
+        sync: false
+
+      # CORS allowlist. Leave empty for the first deploy — set it to the
+      # web service's public URL (e.g. https://smart-reviewer-web.onrender.com)
+      # AFTER that service is live, then redeploy. Without this, the browser
+      # blocks frontend → api calls in production.
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+  # ─────────────────────────────────────────────────────────────────
+  # React 19 + Vite frontend (Static Site)
+  # ─────────────────────────────────────────────────────────────────
+  - type: web
+    runtime: static          # Render serves the built files directly, no Node runtime at request time
+    name: smart-reviewer-web
+    rootDir: web
+    plan: free
+    region: frankfurt
+    autoDeployTrigger: commit
+
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist  # Vite outputs the production bundle here
+
+    # SPA rewrite: every URL serves index.html so TanStack Router can handle
+    # client-side routing. Without this, refreshing /results would 404.
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+
+    envVars:
+      # Public URL of the api service. Vite bakes this into the bundle at
+      # BUILD time (not runtime), so changing it requires a redeploy of this
+      # service. Set it AFTER the api service is live.
+      - key: VITE_API_URL
+        sync: false

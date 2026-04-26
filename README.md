@@ -173,62 +173,49 @@ curl -s "http://localhost:3000/api/results" | jq
 
 Production is **completely isolated** from local dev: a different MongoDB cluster (Atlas), separate env vars, separate URLs. No shared state.
 
-### 🍃 1. MongoDB Atlas cluster
+The repo ships a **`render.yaml` Blueprint** at the root that declares both services (the Rails API as a Web Service, the Vite SPA as a Static Site) along with their build commands, regions, env vars and SPA rewrite. The Rails build itself is delegated to **`api/bin/render-build.sh`** so the YAML stays declarative and the script is reproducible locally. See those two files for per-field rationale — every line is commented.
 
-1. Create a free **M0 cluster** on [cloud.mongodb.com](https://cloud.mongodb.com).
-2. **Database Access** → create a user with `readWrite` on `any database`.
-3. **Network Access** → for tighter security, allow Render's outbound IPs (Render → service → Connect → Outbound IP) instead of `0.0.0.0/0`.
-4. **Connect** → "Drivers" → copy the URI and append the database name:
-   ```
-   mongodb+srv://<user>:<pass>@cluster.xxxx.mongodb.net/smart_reviewer_prod?retryWrites=true&w=majority
-   ```
-   (without a DB name in the path, Mongoid would fall back to `admin` and Atlas would refuse the write — the DB name is required.)
+### 🍃 1. Prepare a MongoDB Atlas database
 
-> **Never commit this URI.** It only ever lives in Render's env vars.
+Use your existing M0 cluster (or create one on [cloud.mongodb.com](https://cloud.mongodb.com)). Build the URI with `/smart_reviewer_prod` as the DB name (separate from local dev's `smart_reviewer_dev`):
 
-### 🖥️ 2. Backend (Render Web Service)
+```
+mongodb+srv://<user>:<pass>@cluster.xxxx.mongodb.net/smart_reviewer_prod?retryWrites=true&w=majority
+```
 
-| Setting | Value |
-|---|---|
-| **Repo root** | `api/` |
-| **Runtime** | Ruby (auto-detected from `Gemfile`) |
-| **Build command** | `bundle install && bundle exec rake db:mongoid:create_indexes` |
-| **Start command** | `bundle exec rails server -p $PORT -e production` |
-| **Health check path** | `/up` |
+> Without a DB name in the path, Mongoid falls back to `admin` and Atlas refuses the write. The DB name is required.
 
-Env vars to set on the service:
+> **Never commit this URI.** It only lives in Render's env vars (set in step 3 below).
 
-| Key | Value |
-|---|---|
-| `MONGODB_URI` | the Atlas URI from step 1 |
-| `GNEWS_API_KEY` | your GNews key |
-| `OPENAI_API_KEY` | your OpenAI key |
-| `RAILS_MASTER_KEY` | contents of `api/config/master.key` |
-| `RAILS_ENV` | `production` |
-| `RAILS_LOG_TO_STDOUT` | `true` |
-| `FRONTEND_ORIGIN` | (set after step 3) |
+### 🚀 2. Apply the Blueprint
 
-### 🌐 3. Frontend (Render Static Site)
+1. Push this repo to GitHub.
+2. [Render Dashboard](https://dashboard.render.com) → **New +** → **Blueprint** → connect this repo, branch `main`.
+3. Render parses `render.yaml` and shows the two services it will create. Click **Apply**.
 
-| Setting | Value |
-|---|---|
-| **Repo root** | `web/` |
-| **Build command** | `npm install && npm run build` |
-| **Publish directory** | `dist` |
+### 🔐 3. Fill in the prompted env vars
 
-Env var:
+Render shows a form for each variable marked `sync: false` in `render.yaml`. Paste:
 
-| Key | Value |
-|---|---|
-| `VITE_API_URL` | the public URL of the backend service from step 2 (e.g. `https://smart-reviewer-api.onrender.com`). This time it's set — Render Static Site doesn't have a proxy, so the frontend hits the backend cross-origin and `rack-cors` does its job. |
+| Service | Key | Value |
+|---|---|---|
+| `smart-reviewer-api` | `MONGODB_URI` | Atlas prod URI from step 1 |
+| `smart-reviewer-api` | `GNEWS_API_KEY` | your GNews key |
+| `smart-reviewer-api` | `OPENAI_API_KEY` | your OpenAI key |
+| `smart-reviewer-api` | `RAILS_MASTER_KEY` | contents of `api/config/master.key` |
+| `smart-reviewer-api` | `FRONTEND_ORIGIN` | _leave empty_ — set in step 4 |
+| `smart-reviewer-web` | `VITE_API_URL` | _leave empty_ — set in step 4 |
 
-### 🔗 4. Wire them together
+Click **Apply** and wait for both services to go live (~5 min).
 
-Once both services are live:
+### 🔗 4. Wire the two services together
 
-1. Go back to the **backend** service on Render → Environment → set `FRONTEND_ORIGIN` to the frontend's URL (e.g. `https://smart-reviewer-web.onrender.com`).
-2. Trigger a redeploy so the CORS middleware picks up the new origin.
-3. Visit the frontend URL → the full search → analyze → results flow should work, writing into Atlas this time.
+Once both services have a public URL:
+
+1. **api** service → Environment → `FRONTEND_ORIGIN = https://smart-reviewer-web.onrender.com`
+2. **web** service → Environment → `VITE_API_URL = https://smart-reviewer-api.onrender.com`
+
+Render auto-redeploys each service on env-var changes (~1-2 min each). After that, the frontend can talk to the API cross-origin (CORS handled by `rack-cors`), and the API allowlists the frontend's origin.
 
 ---
 
