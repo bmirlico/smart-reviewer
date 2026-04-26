@@ -79,9 +79,11 @@ services:
     runtime: static          # Render serves the built files directly, no Node runtime at request time
     name: smart-reviewer-web
     rootDir: web
-    plan: free
-    # Note: no `region` here. Static sites are served from Render's global
-    # CDN, not a single region — Render rejects the Blueprint if you try.
+    # Note: no `plan` and no `region` here.
+    #   - Static sites don't accept `plan: free` (Render rejects the Blueprint);
+    #     they're billed on bandwidth + build minutes against the workspace, not
+    #     a per-service instance tier.
+    #   - Static sites are served from Render's global CDN, not a single region.
     autoDeployTrigger: commit
 
     buildCommand: npm install && npm run build
