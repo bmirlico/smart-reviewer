@@ -80,7 +80,8 @@ services:
     name: smart-reviewer-web
     rootDir: web
     plan: free
-    region: frankfurt
+    # Note: no `region` here. Static sites are served from Render's global
+    # CDN, not a single region — Render rejects the Blueprint if you try.
     autoDeployTrigger: commit
 
     buildCommand: npm install && npm run build
