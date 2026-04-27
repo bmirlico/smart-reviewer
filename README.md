@@ -45,17 +45,18 @@ Analysis is intentionally **synchronous** (3–5s blocking). At this scale, a ba
 
 ## 🧱 Stack
 
-| Layer | Choice | Why |
-|---|---|---|
-| Backend | Rails 8.1 (API-only) | Brief asks for Rails; API-only mode strips views/assets. |
-| ORM | Mongoid 9 (no ActiveRecord) | Brief required MongoDB; Mongoid is the idiomatic Rails ↔ Mongo mapper. |
-| LLM | `ruby-openai` + gpt-4o-mini | Supports `response_format: json_object` so we get guaranteed JSON. |
-| News API | `httparty` against GNews.io | Free tier is enough for a demo. |
-| Frontend | Vite + React 19 + TypeScript | Fastest dev loop; React 19 LTS. |
-| Routing / data | TanStack Router + TanStack Query | Type-safe routing; query cache replaces a global state store. |
-| Styling | Tailwind CSS 3 | Quick path to a clean look without a component library. |
-| DB (dev / prod) | Docker MongoDB / Atlas M0 | Strict isolation between environments. |
-| Deploy | Render (Web Service + Static Site) via `render.yaml` Blueprint | Two free tiers, infra-as-code in the repo. |
+| Layer | Choice |
+|---|---|
+| Backend | Rails 8.1 (API-only) |
+| ORM | Mongoid 9 (no ActiveRecord) |
+| LLM | `ruby-openai` + gpt-4o-mini |
+| News API | `httparty` against GNews.io |
+| Frontend | Vite + React 19 + TypeScript |
+| Routing / data | TanStack Router + TanStack Query |
+| Validation | Zod schemas at the network boundary |
+| Styling | Tailwind CSS 3 |
+| DB (dev / prod) | Docker MongoDB / Atlas M0 |
+| Deploy | Render (Web Service + Static Site) via `render.yaml` Blueprint |
 
 ## 🛠️ Local development
 
@@ -99,22 +100,11 @@ Defined entirely by **`render.yaml`** at the repo root + **`api/bin/render-build
 2. **Blueprint:** push to GitHub → Render Dashboard → New + → Blueprint → select repo. Render prompts for the `sync: false` env vars (`MONGODB_URI`, `GNEWS_API_KEY`, `OPENAI_API_KEY`, `RAILS_MASTER_KEY`).
 3. **Wire the two services** once they're live: set `FRONTEND_ORIGIN` on the api to the web URL, and `VITE_API_URL` on the web to the api URL. Both auto-redeploy on env-var change.
 
-## ⚖️ Trade-offs & decisions
+## ⚖️ Trade-offs
 
 - **One LLM call returning JSON.** Summary + sentiment in a single chat completion via `response_format: json_object`. Half the latency, half the cost.
-- **Sync analysis, no background jobs.** 3–5s blocking is fine here; Sidekiq/Solid Queue would be ceremony.
-- **Backend dedup on `url`.** Unique index + `find_by` short-circuit. Frontend trusts the backend.
-- **Strict local/prod DB separation.** Docker Mongo locally, Atlas in prod. Eliminates the risk of a stray `destroy_all` wiping production data.
-- **TanStack Query over Redux.** Server state is 95% of this app's state; a query cache fits better than a global store.
-- **No tests** (intentional, time-boxed). With more time: RSpec request specs + Vitest/RTL for hooks and key components.
-- **No auth, no rate limiting, IP allowlist open to `0.0.0.0/0` on Atlas.** Out of scope for a demo, all flagged below.
 
 ## 🔭 With more time
 
-- Tests (RSpec request specs, Vitest + RTL).
-- Async analysis (Solid Queue / Sidekiq) if scaling beyond a single article at a time.
-- Pagination + search history on `/results`, per-URL detail page.
-- Sentry on both sides for production error visibility.
-- Auth + rate limiting (`rack-attack`).
-- GitHub Actions CI: lint + typecheck + build on every PR.
-- Tighter Atlas IP allowlist (Render outbound IPs only) and stronger DB password rotation.
+- Tests: RSpec request specs
+
