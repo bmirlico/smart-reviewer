@@ -1,16 +1,26 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
+import { z } from 'zod';
 import { SearchBar } from '../components/SearchBar';
 import { ArticleList } from '../components/ArticleList';
 import { useArticles } from '../hooks/useArticles';
+import { useDebouncedValue } from '../hooks/useDebouncedValue';
+
+const searchSchema = z.object({
+  q: z.string().optional().default(''),
+});
 
 export const Route = createFileRoute('/')({
   component: SearchPage,
+  validateSearch: searchSchema,
 });
 
 function SearchPage() {
-  const [query, setQuery] = useState('');
-  const articlesQuery = useArticles(query);
+  const { q } = Route.useSearch();
+  const navigate = Route.useNavigate();
+
+  // URL updates per keystroke; debounce protects the fetch from spam.
+  const debouncedQ = useDebouncedValue(q, 300);
+  const articlesQuery = useArticles(debouncedQ);
 
   return (
     <div className="space-y-6">
@@ -24,12 +34,15 @@ function SearchPage() {
       </div>
 
       <SearchBar
-        onSubmit={setQuery}
+        value={q}
+        onChange={(next) =>
+          navigate({ search: { q: next }, replace: true })
+        }
         loading={articlesQuery.isFetching && articlesQuery.isFetched}
       />
 
       <ArticleList
-        query={query}
+        query={debouncedQ}
         articles={articlesQuery.data?.articles ?? []}
         isLoading={articlesQuery.isLoading}
         isError={articlesQuery.isError}
