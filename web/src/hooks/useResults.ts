@@ -5,6 +5,5 @@ export function useResults() {
   return useQuery({
     queryKey: ['results'],
     queryFn: api.listResults,
-    staleTime: 30_000,
   });
 }

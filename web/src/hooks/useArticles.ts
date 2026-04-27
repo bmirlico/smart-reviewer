@@ -6,6 +6,5 @@ export function useArticles(query: string) {
     queryKey: ['articles', query],
     queryFn: () => api.searchArticles(query),
     enabled: query.trim().length > 0,
-    staleTime: 60_000,
   });
 }
