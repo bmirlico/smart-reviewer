@@ -24,6 +24,9 @@ production:
     default:
       uri: <%= ENV['MONGODB_URI'] %>
       options:
-        server_selection_timeout: 5
+        # Atlas M0 free tier idles when not used and can take 10-30s to wake up
+        # on the next request. 5s is too aggressive and fails the first hit
+        # after idle; 30s lets the driver retry shards through the cold start.
+        server_selection_timeout: 30
   options:
     raise_not_found_error: false
