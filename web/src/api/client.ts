@@ -1,8 +1,18 @@
-import type { Article, Result } from '../types';
+import type { z } from 'zod';
+import {
+  type Article,
+  ArticlesResponseSchema,
+  ResultSchema,
+  ResultsResponseSchema,
+} from '../types';
 
 const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '');
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+async function request<T>(
+  path: string,
+  schema: z.ZodType<T>,
+  init?: RequestInit,
+): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
     headers: { 'Content-Type': 'application/json' },
     ...init,
@@ -13,18 +23,18 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body.error ?? `HTTP ${res.status}`);
   }
 
-  return res.json() as Promise<T>;
+  return schema.parse(await res.json());
 }
 
 export const api = {
   searchArticles: (q: string) =>
-    request<{ articles: Article[] }>(`/api/articles?q=${encodeURIComponent(q)}`),
+    request(`/api/articles?q=${encodeURIComponent(q)}`, ArticlesResponseSchema),
 
   analyze: (article: Article) =>
-    request<Result>(`/api/analyses`, {
+    request(`/api/analyses`, ResultSchema, {
       method: 'POST',
       body: JSON.stringify(article),
     }),
 
-  listResults: () => request<{ results: Result[] }>(`/api/results`),
+  listResults: () => request(`/api/results`, ResultsResponseSchema),
 };
